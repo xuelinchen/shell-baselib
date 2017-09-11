@@ -1,0 +1,88 @@
+######################################
+# 
+# 脚本名称: cxl_command
+#
+# 目的:
+#    1、执行命令工具类
+#    2、获取命令执行结果
+#    3、获取命令返回值
+# 依赖：
+#    1、cxl_utils
+#    2、cxl_log
+#
+# 注意事项：
+#    不能单独执行，通过source包含
+#
+# 作者: chenxuelin@emicnet.com
+# 
+######################################
+
+cxl_command(){
+    command -v cxl_utils >/dev/null 2>&1
+    retVal=$?
+    if [ $retVal -gt 0 ] 
+    then 
+        cxl_echo_fail "依赖于emic_utils文件"
+        return $retVal
+    fi
+    command -v cxl_log >/dev/null 2>&1
+    retVal=$?
+    if [ $retVal -gt 0 ] 
+    then 
+        cxl_echo_fail "依赖于emic_log文件"
+        return $retVal
+    fi
+    return $retVal
+}
+# ----------------------------
+# 执行命令行并返回结果
+# 将错误打印到标准输出
+# ----------------------------
+cxl_eval_command(){
+    if [ -z "$1" ] 
+    then 
+        cxl_echo_fail "未输入需执行的命令"
+        return 1
+    fi    
+    local status=1
+    local resultFile=`make_tmp_file ".tmp"`
+    local cmdLine="$1 >$resultFile  2>&1"
+    cxl_log "生成临时文件 $resultFile"
+    eval "$cmdLine"  && status=0 || status=1 
+    local level="info"
+    local logMsg
+    
+    if [ $status -gt 0 ]
+    then
+        logMsg="${FAIL_VAL}"
+        level="ERROR"
+    else
+        logMsg="${OK_VAL}"
+    fi
+    cxl_log "执行命令 [$cmdLine] $logMsg"  $level
+   
+    if [ -s "$resultFile" ]
+    then 
+        local result=`cat $resultFile`
+        cxl_log "执行结果 ：$result" $level; 
+        if [ -n "$2" ] && [ -f "$2" ] ; then echo -e "$result" > $2 ; fi  
+    else
+        cxl_log "无返回结果"
+    fi
+    rm $resultFile -rf
+    cxl_log "删除临时文件 $resultFile"
+    return $status
+}
+
+# ----------------------------
+# 执行mysql命令行并返回结果
+# ----------------------------
+cxl_eval_mysql(){
+    local status=1
+    local cmdLine="mysql -u'$mysql_user' -p'$mysql_pwd' -h "$mysql_host" --local-infile=1 -e \"$1\"" 
+    local file=""
+    if [ -n "$2" ] && [ -f "$2" ]; then file=$2; fi
+    eval_command "$cmdLine" "$file" && status=0 || status=1 
+    return $status
+}
+

@@ -1,0 +1,125 @@
+######################################
+# 
+# 脚本名称: cxl_crypt
+#
+# 目的:
+#    1、加密工具类
+# 依赖：
+#    1、cxl_utils
+#    2、cxl_log
+# 注意事项：
+#    不能单独执行，通过source包含
+#
+# 作者: chenxuelin@emicnet.com
+# 
+######################################
+
+cxl_crypt(){
+    command -v cxl_utils >/dev/null 2>&1
+    retVal=$?
+    if [ $retVal -gt 0 ] 
+    then 
+        cxl_echo_fail "依赖于cxl_utils文件"
+        return $retVal
+    fi
+    command -v cxl_log >/dev/null 2>&1
+    retVal=$?
+    if [ $retVal -gt 0 ] 
+    then 
+        cxl_echo_fail "依赖于cxl_log文件"
+        return $retVal
+    fi
+    return $retVal
+}
+# ----------------------------
+# 返回字符串md5值
+# echo -n "9a7d485124d3cd788fb1c0ecb1103321" | openssl md5 -binary | od -tx1 -w1 | awk 'NF<2{next}{printf("%s",$2)}'
+# echo -n "9a7d485124d3cd788fb1c0ecb1103321" | openssl md5 | awk '{printf("%s",$2)}'
+# echo -n "$1"|md5sum|awk '{printf("%s",$1)}'
+# 调用方式 md5_str 带加密的字符串 true|false(是否转换为16进制）
+#          md5str=`md5_str "1234567"` || echo "fail"
+#          md5str=`md5_str "1234567" "true"` || echo "fail"
+# ----------------------------
+md5_str(){
+    if [ -z "$1" ] ; then return 1; fi
+    local status=1
+    if [ -n "$2" ] && [ "$2" = "true" ]  
+    then
+        echo -n "$1" | openssl md5 -binary | od -tx1 -w1 | awk 'NF<2{next}{printf("%s",$2)}' && status=0 || status=1
+        cxl_log "生成md5字符串：echo -n $1 | openssl md5 -binary | od -tx1 -w1 | awk 'NF<2{next}{printf(\"%s\",\$2)}'"
+    else
+        echo -n "$1" | openssl md5 | awk '{printf("%s",$2)}' && status=0 || status=1
+        cxl_log "生成md5字符串：echo -n $1 | openssl md5 | awk '{printf(\"%s\",$2)}'"
+    fi
+    return $status
+}
+# ----------------------------
+# 返回加密后的字符串 重庆bss使用算法
+# echo -n "1234567"|openssl aes-128-ecb -K 226a89e66d0dcc79c9673150fa176001 | od -tx1 -w1 -v | awk 'NF<2{next}{printf("%s",$2)}' | tr '[a-z]' '[A-Z]'
+# 196d7e3754c5814d4c868c38e951f588
+# 调用方式 result=`cq_encrypt_str 待加密的字符串 秘钥`
+#          result=`cq_encrypt_str "1234567" 226a89e66d0dcc79c9673150fa176001`
+# ----------------------------
+cq_encrypt_str(){
+    if [ -z "$1" ] ; then return 1; fi
+    if [ -z "$2" ] ; then return 2; fi
+    local status=1
+    echo -n "$1"|openssl aes-128-ecb -K $2 | od -tx1 -w1 -v | awk 'NF<2{next}{printf("%s",$2)}' | tr '[a-z]' '[A-Z]' && status=0 || status=1
+    cxl_log "生成加密字符串：echo -n $1|openssl aes-128-ecb -K $2 | od -tx1 -w1 -v | awk 'NF<2{next}{printf(\"%s\",\$2)}' | tr '[a-z]' '[A-Z]'"
+    return $status
+}
+# ----------------------------
+# 返回解密后的字符串 重庆bss使用算法
+# echo 196D7E3754C5814D4C868C38E951F588 | sed 's/\(..\)/\\\\x\1/g' | xargs echo -e -n | openssl aes-128-ecb -K 226a89e66d0dcc79c9673150fa176001 -d
+# 调用方式 result=`cq_decrypt_str 待解密的字符串 秘钥`
+#          result=`cq_decrypt_str "1234567" 226a89e66d0dcc79c9673150fa176001`
+# ----------------------------
+cq_decrypt_str(){
+    if [ -z "$1" ] ; then return 1; fi
+    if [ -z "$2" ] ; then return 2; fi
+    local status=1
+    echo "$1" | sed 's/\(..\)/\\\\x\1/g' | xargs echo -e -n | openssl aes-128-ecb -K $2 -d && status=0 || status=1
+    cxl_log "生成解密字符串：echo $1 | sed 's/\(..\)/\\\\x\1/g' | xargs echo -e -n | openssl aes-128-ecb -K $2 -d"
+    return $status
+}
+
+# ----------------------------
+# 返回gzip后的字符串 重庆bss使用算法
+# echo -n "1234567" > gzfile
+# gzip -c gzfile|base64
+# 调用方式 result=`cq_gzip_str 待压缩的字符串 `
+#          result=`cq_gzip_str "1234567"` 
+# ----------------------------
+cq_gzip_str(){
+    if [ -z "$1" ] ; then return 1; fi
+    local status=1
+    local gzfile=`make_tmp_file ".gz"`
+    cxl_log "生成临时文件：$gzfile"
+    echo -n "$1" > "$gzfile"
+    cxl_log "写入压缩前字符串到文件：echo -n $1 > $gzfile"
+    gzip -c -n "$gzfile" | base64 && status=0 || status=1
+    cxl_log "生成gzip压缩字符串：gzip -c -n $gzfile | base64"
+    rm "$gzfile" -rf
+    cxl_log "删除临时文件：$gzfile"
+    return $status
+}
+# ----------------------------
+# 返回ungzip后的字符串 重庆bss使用算法
+# echo -n "H4sIAAAAAAAAAzM0MjYxNTMHAJ9pA1AHAAAA" | base64 -d > gzfile1
+# gunzip -c gzfile1
+# 调用方式 result=`cq_unzip_str 待解压缩的字符串`
+#          result=`cq_unzip_str "H4sIAAAAAAAAAzM0MjYxNTMHAJ9pA1AHAAAA"` 
+# ----------------------------
+cq_unzip_str(){
+    if [ -z "$1" ] ; then return 1; fi
+    local status=1
+    local gzfile=`make_tmp_file ".gz"`
+    cxl_log "生成临时文件：$gzfile"
+    echo -n "$1" | base64 -d > "$gzfile"
+    cxl_log "写入解压缩前字符串到文件：echo -n $1 | base64 -d > $gzfile"
+    gunzip -c -n $gzfile && status=0 || status=1
+    cxl_log "生成解压缩字符串：gunzip -c -n $gzfile"
+    rm "$gzfile" -rf 
+    cxl_log "删除临时文件：$gzfile"
+    return $status
+}

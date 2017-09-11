@@ -1,0 +1,228 @@
+######################################
+# 
+# 脚本名称: cxl_model
+#
+# 目的:
+#    1、访问数据库
+#    2、处理数据
+#
+# 注意事项：
+#    不能单独执行，通过source包含
+#
+# 作者: chenxuelin@emicnet.com
+# 
+######################################
+
+cxl_model(){
+    command -v cxl_utils >/dev/null 2>&1
+    retVal=$?
+    if [ $retVal -gt 0 ] 
+    then 
+        cxl_echo_fail "依赖于cxl_utils文件"
+        return $retVal
+    fi
+    command -v cxl_log >/dev/null 2>&1
+    retVal=$?
+    if [ $retVal -gt 0 ] 
+    then 
+        cxl_echo_fail "依赖于cxl_log文件"
+        return $retVal
+    fi
+    command -v cxl_command >/dev/null 2>&1
+    retVal=$?
+    if [ $retVal -gt 0 ] 
+    then 
+        cxl_echo_fail "依赖于cxl_command文件"
+        return $retVal
+    fi
+    return $retVal
+}
+# ----------------------------
+# 执行mysql命令行
+# 更新服务器为指定省市
+# ----------------------------
+update_param_province(){  
+    if [ -z "$1" ]
+    then 
+        print_log "未知省市信息" error
+        return 1
+    fi
+    local province="$1"
+    local status=1
+    mysql_host="$maintenance_ip"
+    cxl_eval_mysql "update maintenance.m_system_param set m_value='$province' where m_key='server_province';" && status=0 || status=1
+    if [ $status -gt 0 ]
+    then
+        print_log "无法访问运维数据库，退出测试" error
+        return 1
+    fi
+    mysql_host="$enterprise_ip"
+    cxl_eval_mysql "update talk.talk_param set \\\`value\\\`='$province' where \\\`key\\\`='server_province';"  && status=0 || status=1
+    if [ $status -gt 0 ]
+    then
+        print_log "无法访问企业数据库，退出测试" error
+        return 1
+    fi
+    return $status
+}
+
+# ----------------------------
+# 提交bss请求
+# 格式类似 Operate=modifymaxmember&Number=02588888888&MaxMember=33
+# ----------------------------
+sendBssRequest(){
+    if [ -z "$1" ]
+    then 
+        print_log "没有提交需处理的字符串" error
+        return 1
+    fi
+    local paramter=$1
+    local resultFile=`make_tmp_file ".result"`
+    cxl_log "生成临时文件 $resultFile"
+    case "$province" in       
+        hebei) 
+            cxl_eval_command "curl -s -H \"Content-Type: text/xml; charset=utf-8\" -d '$paramter' $bssUrl" "$resultFile" && status=0 || status=1
+            if [ $status -gt 0 ] ; then return 1; fi 
+            # 解析xml获取返回值
+            retVal=`cat $resultFile | sed 's/<OrderList.*>/<OrderList>/g' | sed 's/<ClientInfoResponse.*>/<ClientInfoResponse>/g' | sed 's/<NumberInfoResponse.*>/<NumberInfoResponse>/g' | sed 's/<NumberStsResponse.*>/<NumberStsResponse>/g' | sed 's/<MobileInfoResponse.*>/<MobileInfoResponse>/g' | xmlstarlet sel -t -v "//ReturnCode"`     
+            if [ -n "$retVal" ] && [ "$retVal" == "0" ]
+            then
+                status=0
+            else
+                retMsg=`cat $resultFile | sed 's/<OrderList.*>/<OrderList>/g' | sed 's/<ClientInfoResponse.*>/<ClientInfoResponse>/g' | sed 's/<NumberInfoResponse.*>/<NumberInfoResponse>/g' | sed 's/<NumberStsResponse.*>/<NumberStsResponse>/g' | sed 's/<MobileInfoResponse.*>/<MobileInfoResponse>/g' | xmlstarlet sel -t -v "//ReturnMessage"`
+                print_log "返回失败[原因]$retMsg" error
+            fi 
+            ;;        
+        chongqing)
+            #重庆加密过程
+            cqRequestStr='{"OrderInfo":{"EMIC_NEED_REPLACE"}}'
+            paramter=${cqRequestStr/EMIC_NEED_REPLACE/$paramter}
+            #将字符串转换为json字符串
+            paramter=`parse_to_json "$paramter"`
+            paramter=`cq_encrypt_str "$paramter" "$md5Str"` && status=0 || status=1
+            if [ $status -gt 0 ] 
+            then
+                print_log "加密数据失败 " "error"
+                return $status
+            fi
+            local jsonFile=`make_tmp_file ".json"`
+            cxl_log "生成临时文件 $jsonFile,写入提交数据"
+            eval "cat template/cq_request.json | sed 's/EMIC_NEED_REPLACE/$paramter/g' > $jsonFile"
+            
+            cxl_eval_command "curl -s -H \"Content-type:application/json; charset=UTF-8\" -H \"Accept:application/json\"  -d '@$jsonFile'  $bssUrl" "$resultFile" && status=0 || status=1
+            if [ $status -gt 0 ] ; then return 1; fi
+            rm $jsonFile -rf
+            cxl_log "删除临时文件 $jsonFile"
+            # 解析json获取返回值
+            retJson=`cat $resultFile | jq '.UNI_AIM_BODY'| sed 's/"//g'`
+            retVal=`cq_decrypt_str "$retJson" "$md5Str" | jq '.ResultInfo.ResultCode' | sed 's/"//g'`
+            if [ -n "$retVal" ] && [ "$retVal" == "0000" ]
+            then
+                status=0
+            else
+                retMsg=`cq_decrypt_str "$retJson" "$md5Str" | jq '.ResultInfo.ResultMsg' | sed 's/"//g'`
+                print_log "返回失败[原因]$retMsg" error
+                status=1
+            fi
+            ;;
+        *)
+            cxl_eval_command "curl -s -d '$paramter' $bssUrl" "$resultFile" && status=0 || status=1
+            if [ $status -gt 0 ] ; then return 1; fi 
+            # 解析json获取返回值
+            retVal=`cat $resultFile | jq '.status' | sed 's/"//g'`
+            if [ -n "$retVal" ] && [ "$retVal" == "0" ]
+            then
+                status=0
+            else
+                retMsg=`cat $resultFile | jq '.info' | sed 's/"//g'`
+                print_log "返回失败[原因]$retMsg" error
+            fi
+            ;;
+    esac  
+    rm $resultFile -rf
+    cxl_log "删除临时文件：$resultFile"
+    return $status
+}
+# ----------------------------
+# 查询外线号码是否存在
+# ----------------------------
+checkNumberExist(){
+    if [ -z "$1" ] ; then return 1; fi
+    if [ -z "$2" ] ; then return 1; fi
+    local status=1
+    local areacode="$1"
+    local number="$2"
+    local outsideNumber="$areacode$number"
+    local sql="select count(*) from maintenance.m_pub_account where area_code='$areacode' and outside_number='$number';"
+    resultFile=`make_tmp_file ".result"`
+    cxl_log "生成临时文件：$resultFile"
+    mysql_host="$maintenance_ip"
+    cxl_eval_mysql "$sql" "$resultFile" && status=0 || status=1
+    if [ $status -eq 0 ]
+    then
+        checkCount=`sed -n '$p' $resultFile | awk '{print $1}'`
+        if [ $checkCount -gt 0 ]
+        then
+            status=0
+        else
+            print_log "未找到创建的外线号码[$outsideNumber]" "error"
+            status=1
+        fi   
+    fi
+    rm $resultFile -rf
+    cxl_log "删除临时文件：$resultFile"
+    return $status
+}
+# ----------------------------
+# 根据外线号码查询企业最大用户数
+# ----------------------------
+getEpMaxMember(){
+    if [ -z "$1" ] ; then return 1; fi
+    if [ -z "$2" ] ; then return 1; fi
+    local status=1
+    local areacode="$1"
+    local number="$2"
+    local outsideNumber="$areacode$number"
+    local sql="select max_member from maintenance.m_enterprise where eid=(select eid from maintenance.m_pub_account where area_code='$areacode' and outside_number='$number');"
+    resultFile=`make_tmp_file ".result"`
+    cxl_log "生成临时文件：$resultFile"
+    mysql_host="$maintenance_ip"
+    cxl_eval_mysql "$sql" "$resultFile" && status=0 || status=1
+    if [ $status -eq 0 ]
+    then
+        checkCount=`sed -n '$p' $resultFile | awk '{print $1}'`
+        echo -n "$checkCount"
+    fi
+    rm $resultFile -rf
+    cxl_log "删除临时文件：$resultFile"
+    return $status
+}
+# ----------------------------
+# 查询外线号码状态
+# ----------------------------
+getNumberStatus(){
+    if [ -z "$1" ] ; then return 1; fi
+    if [ -z "$2" ] ; then return 1; fi
+    local status=1
+    local areacode="$1"
+    local number="$2"
+    local outsideNumber="$areacode$number"
+    local sql="select status from maintenance.m_pub_account where area_code='$areacode' and outside_number='$number';"
+    resultFile=`make_tmp_file ".result"`
+    cxl_log "生成临时文件：$resultFile"
+    mysql_host="$maintenance_ip"
+    cxl_eval_mysql "$sql" "$resultFile" && status=0 || status=1
+    if [ $status -eq 0 ]
+    then
+        local numberStatus=`sed -n '$p' $resultFile | awk '{print $1}'`
+        if [ -z "$numberStatus" ]
+        then
+            status=1
+        else
+            echo -n "${numberStatus}"
+        fi   
+    fi
+    rm $resultFile -rf
+    cxl_log "删除临时文件：$resultFile"
+    return $status
+}
