@@ -28,7 +28,20 @@ function cxl_curl(){
     echo "$level $logDate $1" >> $cxl_log_file && status=0 || status=1
     return $status
 }
-
+# ----------------------------
+# 提交请求
+# 接收参数：
+#                $1 "访问地址参数"
+#                $2 -d "参数"
+#                $3 是否需要创建cookie文件，1为创建 -c，其它不创建 -b
+#                $4 cookie文件名
+#                $5 header参数，为空不创建header参数
+# ----------------------------
+sendRequest(){
+	if [ -z "$1" ]; then cxl_emic_fail "没有提交需处理的字符串"; return 1; fi
+	uri="$1"
+	$result=`curl -s -k -d "" -H`
+}
 # ----------------------------
 # 提交bss请求
 # 格式类似 Operate=modifymaxmember&Number=02588888888&MaxMember=33

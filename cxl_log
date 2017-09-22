@@ -43,6 +43,8 @@ function print_log(){
             cxl_echo_info "$1";;
         warn|WARN|Warn)
             cxl_echo_warn "$1";;
+        success|SUCCESS|Succ)
+        	cxl_echo_success "$1";;
         *) 
             cxl_echo_debug "$1";;
    esac
