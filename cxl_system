@@ -1,0 +1,44 @@
+######################################
+# 
+# 脚本名称: cxl_system
+#
+# 描述：查看系统相关信息
+# 		几种查看Linux版本信息的方法：
+# 		1. uname -a
+#		2. cat /proc/version
+#　　3. cat /etc/issue
+#　　4. lsb_release -a
+#
+# 注意事项：
+#    不能单独执行，通过source cxl_system或 . cxl_system
+#
+# 作者: chenxuelin@emicnet.com
+# 
+######################################
+
+# ----------------------------
+# 检查是否包含该文件
+# ----------------------------
+cxl_system(){
+    return 0
+}
+
+# ----------------------------
+# 判断系统是否ubuntu
+# ----------------------------
+is_ubuntu(){
+	# 检查版本号，如果为空则不检查
+	local ckVersion="" 
+	if [ -n "$1" ] ; then ckVersion="$1"; fi
+	local curSys=`lsb_release -i | awk '{print $3}'`
+	if [ x"$curSys" = x"Ubuntu" ] 
+	then
+		if [ ! -z "$ckVersion" ] 
+		then
+			local curVer=`lsb_release -r|awk '{print $2}'|grep "$ckVersion"`
+			if [ -z "$curVer" ] ; then return 1; fi
+		fi
+		return 0
+	fi
+	return 1
+}

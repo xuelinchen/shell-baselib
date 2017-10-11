@@ -2,8 +2,8 @@
 # 
 # 脚本名称: cxl_log
 #
-# 目的:
-#    1、log类
+# 功能:
+#    日志类
 #
 # 注意事项：
 #    不能单独执行，通过source包含
@@ -17,7 +17,8 @@
 #  调用方式
 #       cxl_log "msg" "DEBUG"
 # ----------------------------
-function cxl_log(){
+logFileLimit=5242880 # 日志文件限制大小为5M
+cxl_log(){
     if [ -z "$1" ]; then return 1; fi
     if [ -z "$cxl_log_file" ] ;then cxl_log_file='/tmp/cxl_log_file.log'; fi
     local level="debug"
@@ -29,26 +30,13 @@ function cxl_log(){
     return $status
 }
 
-# ----------------------------
-# 记录log和打印函数
-# ----------------------------
-function print_log(){
-    local level="DEBUG"
-    if [ -n "$2" ] ; then level=$2; fi
-
-    case $level in  
-        error|ERROR|Error) 
-            cxl_echo_fail "$1";;
-        info|INFO|Info)
-            cxl_echo_info "$1";;
-        warn|WARN|Warn)
-            cxl_echo_warn "$1";;
-        success|SUCCESS|Succ)
-        	cxl_echo_success "$1";;
-        *) 
-            cxl_echo_debug "$1";;
-   esac
-   local status=1
-   cxl_log "$1" $level && status=0 || status=1
-   return $status
+check_log_file(){
+	if [ ! -f "$cxl_log_file" ]; then return 1; fi
+	local curSize=`du -b "$cxl_log_file" | awk '{print $1}'`
+	if [ $curSize -gt $logFileLimit ]
+	then
+		#sed -i '1,50000d' "$cxl_log_file" # 删除50000万行
+		tail -n 1000 "$cxl_log_file" >"$cxl_log_file" # 保留1000行
+	fi
+	return 0;
 }
