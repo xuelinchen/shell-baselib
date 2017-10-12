@@ -42,3 +42,108 @@ is_ubuntu(){
 	fi
 	return 1
 }
+
+# ----------------------------
+# 检查是否安装软件
+# ----------------------------
+is_install(){
+    if [ -z "$1" ] ; then return 1; fi
+	local status=0
+	local softName="$1"
+	dpkg -s "$softName" >/dev/null && status=0 || status=1
+	return $status
+}
+# ----------------------------
+# 安装软件
+# ----------------------------
+install_soft(){
+	if [ -z "$1" ] ; then return 1; fi
+	local status=0
+	apt install  "$1" -y && status=0 || status=1 
+	return $status
+}
+# ----------------------------
+# 检查软件是否存在，如果不存在安装软件
+# ----------------------------
+check_and_install_soft(){
+	if [ -z "$1" ] ; then return 1; fi
+	local softName="$1"
+	local status=0
+	is_install "$softName" && status=0 || status=1
+	if [ $status != 0 ]; then
+		install_soft "$softName" && status=0 || status=1
+		if [ $status != 0 ];  then 
+			print_log "安装$softName失败" "error"
+		else
+			print_log "安装$softName成功" "info"
+		fi
+	else
+		print_log "$softName已安装，跳过安装" info
+	fi
+	return $status
+}
+# ----------------------------
+# 卸载软件
+# ----------------------------
+remove_soft(){
+	if [ -z "$1" ] ; then return 1; fi
+	local status=0
+	apt autoremove "$1" --purge  -y && status=0 || status=1
+	return $status
+}
+# ----------------------------
+# 检查软件是否存在，如果存在卸载软件
+# ----------------------------
+check_and_remove_soft(){
+	if [ -z "$1" ] ; then return 1; fi
+	local softName="$1"
+	local status=1
+	is_install "$softName" && status=0 || status=1
+	if [ $status = 0 ]; then
+		print_log "准备卸载$softName" "info"
+		remove_soft "$softName" && status=0 || status=1
+		if [ $status != 0 ]; then 
+	    	print_log "卸载$softName失败" "error"
+	    else
+	    	print_log "卸载$softName成功" "info"
+	    fi
+	else
+		print_log "未安装$softName，跳过卸载" "warn"
+	fi
+	return $status
+}
+# ----------------------------
+# 获取版本号（暂时不可用）
+# softname --version
+# softname -v
+# dpkg -s softname
+# ----------------------------
+get_version(){
+    if [ -z "$1" ] ; then return 1; fi
+	local status=0
+	local softName="$1"
+    local ver=`$softName --version`  
+    status=$?
+    if [ $status = 0 ]
+    then
+		echo -e "$ver"|head -n 1|awk '{if(NF>3 && $2="version"){print $3}else if(NF==1){print substr($1,2)}else{exit 99}}'
+		status=$?
+	fi
+	return $status
+}
+
+# ----------------------------
+# 卸载并安装nodejs8
+# ----------------------------
+install_nodejs(){
+   apt remove "nodejs" --purge  -y 
+   curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -
+   apt install nodejs -y && status=0 || status=1
+   if [ $status != 0 ]
+   then 
+	    print_log "安装nodejs8失败，退出程序" "error"
+   else
+	    print_log "安装nodejs8成功" "info"
+   fi
+   return $status
+}
