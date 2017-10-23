@@ -78,7 +78,7 @@ check_and_install_soft(){
 			print_log "安装$softName成功" "info"
 		fi
 	else
-		print_log "$softName已安装，跳过安装" info
+		print_log "$softName已安装，跳过安装" "warn"
 	fi
 	return $status
 }

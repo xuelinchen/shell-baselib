@@ -29,7 +29,9 @@ cxl_log(){
     echo -e "$level $logDate $1" >> $cxl_log_file && status=0 || status=1
     return $status
 }
-
+# ----------------------------
+#  超过logFileLimit只保留最后1000行
+# ----------------------------
 check_log_file(){
 	if [ ! -f "$cxl_log_file" ]; then return 1; fi
 	local curSize=`du -b "$cxl_log_file" | awk '{print $1}'`

@@ -2,8 +2,8 @@
 # 
 # 脚本名称: cxl_utils
 #
-# 目的:
-#    1、工具类
+# 描述：:
+#    工具类
 #
 # 注意事项：
 #    不能单独执行，通过source包含
@@ -15,7 +15,6 @@
 cxl_utils(){
     return 0
 }
-
 
 # ----------------------------
 # 返回临时文件名
@@ -52,231 +51,38 @@ function make_tmp_file(){
 }
 
 # ----------------------------
-# 在数组或字符串中寻找另一个字符串
-# ----------------------------
-cxl_indexOf(){
-    if [ -z "$1" ] ; then return 1; fi
-    if [ -z "$2" ] ; then return 2; fi
-    for x in $2
-    do
-	    if [ $x = $1 ] ; then return 0; fi
-    done
-    return 3
-}
-# ----------------------------
 # 判断命令是否存在
 # ----------------------------
 command_exist(){
     command -v "$1" >/dev/null 2>&1 && return 0 || return 1
 }
-# ----------------------------
-# 返回大写
-# 例如：UPPERCASE=$(echo $VARIABLE | tr '[a-z]' '[A-Z]')   (把VARIABLE的小写转换成大写)
-#       LOWERCASE=$(echo $VARIABLE | tr '[A-Z]' '[a-z]')   (把VARIABLE的大写转换成小写)
-# ----------------------------
-cxl_strtoupper(){
-    echo -n "$1" | tr '[a-z]' '[A-Z]' && return 0 || return 1
-}
-cxl_strtolow(){
-    echo -n "$1" | tr '[A-Z]' '[a-z]' && return 0 || return 1
-}
-cxl_get_province(){  
-    if [ -z "$1" ] ; then echo "江苏";return 0; fi
-    case $1 in
-        jiangsu) echo "江苏" ;;
-        shaanxi) echo "陕西" ;;
-        shanxi) echo "山西" ;;
-        anhui) echo "安徽" ;;
-        jiangxi) echo "江西" ;;
-        shandong) echo "山东" ;;
-        hunan) echo "湖南" ;;
-        henan) echo "河南" ;;
-        hebei) echo "河北" ;;
-        guangdong) echo "广东" ;;
-        guangxi) echo "广西" ;;
-        beijing) echo "北京" ;;
-        shanghai) echo "上海" ;;
-        zhejiang) echo "浙江" ;;
-        liaoning) echo "辽宁" ;;
-        xizang) echo "西藏" ;;
-        xinjiang) echo "新疆" ;;
-        fujian) echo "福建" ;;
-        hubei) echo "湖北" ;;
-        yunnan) echo "云南" ;;
-        guizhou) echo "贵州" ;;
-        chongqing) echo "重庆" ;;
-        sichuan) echo "四川" ;;
-        gansu) echo "甘肃" ;;
-        tianjin) echo "天津" ;;
-        jilin) echo "吉林" ;;
-        heilongjiang) echo "黑龙江" ;;
-        neimenggu) echo "内蒙古" ;;
-        qinghai) echo "青海" ;;
-        hainan) echo "海南" ;;
-        ningxia) echo "宁夏" ;;
-        *) echo "未知" ;;
-    esac
-    return 0
-}
-cxl_get_areacode(){
-    if [ -z "$1" ] ; then echo "025"; fi
-    case $1 in
-        jiangsu) echo "025" ;;
-        shaanxi) echo "029" ;;
-        shanxi) echo "0351" ;;
-        anhui) echo "0551" ;;
-        jiangxi) echo "0791" ;;
-        shandong) echo "0531" ;;
-        hunan) echo "0730" ;;
-        henan) echo "0371" ;;
-        hebei) echo "0311" ;;
-        guangdong) echo "020" ;;
-        guangxi) echo "0771" ;;
-        beijing) echo "010" ;;
-        shanghai) echo "021" ;;
-        zhejiang) echo "0571" ;;
-        liaoning) echo "024" ;;
-        xizang) echo "0891" ;;
-        xinjiang) echo "0991" ;;
-        fujian) echo "0591" ;;
-        hubei) echo "027" ;;
-        yunnan) echo "0871" ;;
-        guizhou) echo "0851" ;;
-        chongqing) echo "023" ;;
-        sichuan) echo "028" ;;
-        gansu) echo "0931" ;;
-        tianjin) echo "022" ;;
-        jilin) echo "0431" ;;
-        heilongjiang) echo "0451" ;;
-        neimenggu) echo "0471" ;;
-        qinghai) echo "0971" ;;
-        hainan) echo "0898" ;;
-        ningxia) echo "0951" ;;
-        *) echo "025";;
-    esac
-    return 0
-}
 
+# ----------------------------
+# 转换json
+# ----------------------------
 parse_to_json(){
     if [ -z "$1" ] ; then return 1; fi
     local status=0
     echo "$1" | sed 's/=/\":\"/g'|sed 's/&/\",\"/g' && status=0 || status=1
     return $status
 }
+
 # ----------------------------
-# 检查并安装软件
+# 获取配置文件参数值
 # ----------------------------
-is_install(){
-    if [ -z "$1" ] ; then return 1; fi
-	local status=0
-	local softName="$1"
-	dpkg -s "$softName" >/dev/null && status=0 || status=1
-	return $status
+get_config_value(){
+	sed -n -r "/^[\s]?DB_HOST/p"  /usr/local/EmicallApp/config/boot.cfg | awk -F '=' '{print $2}'
+	awk -F "=>" '{if($1 ~ /session/){a=1;b=0};if(a==1){if($1 ~ /\]/){exit 99};if($1 ~ /prefix/){print $2;exit 0;}}}' /home/cxl/git-svn/spi/spi-php/application/config.php
+	awk -F '=>' '{if($0~/\047session\047/){find=1;fl=0;fr=0}if(find){if($0~/\[/){fl++;};if($0~/\]/){fr++;};if($1~/\047host\047/){print $2;exit 0;}if(fl==fr){exit 99}}}' ../application/config.php
 }
+
 # ----------------------------
-# 获取版本号
+# 设置配置文件参数值
 # ----------------------------
-get_version(){
-    if [ -z "$1" ] ; then return 1; fi
-	local status=0
-	local softName="$1"
-    local ver=`$softName --version`  
-    status=$?
-    if [ $status = 0 ]
-    then
-		echo -e "$ver"|head -n 1|awk '{if(NF>3 && $2="version"){print $3}else if(NF==1){print substr($1,2)}else{exit 99}}'
-		status=$?
-	fi
-	return $status
+set_config_value(){
+	
+	echo "set value"
 }
-# ----------------------------
-# 检查版本号是否符合要求
-# ----------------------------
-check_version(){
-	 if [ -z "$1" ] ; then return 1; fi
-	 if [ -z "$2" ] ; then return 1; fi
-	 local curVersion="$1"
-	 local limitVersion="$2"	 
-	 echo "$curVersion" | awk  -v limitVersion="$limitVersion" -F "." 'BEGIN{n1=split(limitVersion,limitVer,".");}{if(NF<2){exit 99}if($1<limitVer[1]){exit 99}else if($2<limitVer[2]){exit 99}}'
-	 local status=$?
-	 return $status
-}
-# ----------------------------
-# 卸载软件
-# ----------------------------
-remove_soft(){
-	if [ -z "$1" ] ; then return 1; fi
-	local status=0
-	apt autoremove "$1" --purge  -y && status=0 || status=1
-	return $status
-}
-# ----------------------------
-# 安装软件
-# ----------------------------
-install_soft(){
-	if [ -z "$1" ] ; then return 1; fi
-	local status=0
-	apt install  "$1" -y && status=0 || status=1 
-	return $status
-}
-# ----------------------------
-# 检查软件是否存在，
-# 不存在则安装
-# ----------------------------
-check_or_install_soft(){
-	if [ -z "$1" ] ; then return 1; fi
-	if [ -z "$2" ] ; then return 1; fi
-	local installSoft="$1"
-	local limitVersion="$2"
-	local softCmd="$installSoft"
-	if [ -n "$3" ]; then softCmd="$3"; fi
-	local status=0
-	is_install "$installSoft" && status=0 || status=1
-	if [ $status = 0 ]
-	then
-		# 如果已安装，检查版本是否符合要求
-		local curVersion=`get_version "$softCmd"`
-		status=$?
-		if [ $status = 0 ]
-		then
-			# 获取版本成功，检查版本是否合法
-			check_version "$curVersion" "$limitVersion" && status=0 || status=1
-			if [ $status != 0 ]
-			then
-				print_log "已安装$installSoft,版本：$curVersion小于限制版本$limitVersion,手工处理" "error"
-				return $status
-			fi
-		else
-			print_log "获取$installSoft版本失败" "warn"
-			curVersion='0.0.0'
-		fi
-		print_log "已安装$installSoft,版本：$curVersion,符合要求" "info"
-	else
-	   # 如果未安装则安装软件
-	   print_log "未找到安装版本，正在安装$installSoft" "info"
-	   apt install  "$installSoft" -y && status=0 || status=1 
-	   if [ $status != 0 ]
-	   then 
-		     print_log "安装$installSoft失败，退出程序" "error"
-		     return $status
-	   else
-		     print_log "安装$installSoft成功" "info"
-	   fi
-	fi	
-	return $status
-}
-# ----------------------------
-# 卸载并安装nodejs8
-# ----------------------------
-install_nodejs(){
-   apt remove "nodejs" --purge  -y 
-   curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -
-   apt install nodejs -y && status=0 || status=1
-   if [ $status != 0 ]
-   then 
-	    print_log "安装nodejs8失败，退出程序" "error"
-   else
-	    print_log "安装nodejs8成功" "info"
-   fi
-   return $status
-}
+
+
+

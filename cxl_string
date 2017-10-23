@@ -31,3 +31,15 @@ cxl_indexOf(){
     done
     return 3
 }
+
+# ----------------------------
+# 返回大写
+# 例如：UPPERCASE=$(echo $VARIABLE | tr '[a-z]' '[A-Z]')   (把VARIABLE的小写转换成大写)
+#       LOWERCASE=$(echo $VARIABLE | tr '[A-Z]' '[a-z]')   (把VARIABLE的大写转换成小写)
+# ----------------------------
+cxl_strtoupper(){
+    echo -n "$1" | tr '[a-z]' '[A-Z]' && return 0 || return 1
+}
+cxl_strtolow(){
+    echo -n "$1" | tr '[A-Z]' '[a-z]' && return 0 || return 1
+}

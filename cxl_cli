@@ -20,3 +20,14 @@
 cxl_cli(){
     return 0
 }
+
+# ----------------------------
+# 执行mysql命令返回结果
+# ----------------------------
+mysql_cli(){
+	if [ -z "$1" ] ; then return 1; fi
+	local sql="$1"	
+	local cmdLine="mysql -u'$mysql_user' -p'$mysql_pass' -h "$mysql_host" -P $mysql_port  -e \"$sql\" 2>/dev/null | awk '{print}'"
+	eval "$cmdLine"
+	return ${PIPESTATUS[0]}
+}
