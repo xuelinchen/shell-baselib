@@ -113,6 +113,16 @@ check_and_remove_soft(){
 	return $status
 }
 # ----------------------------
+# 获取远程svn最新版本
+# ----------------------------
+get_svn_head(){
+	if [ -z "$1" ]; then return 1; fi
+	local svnUrl="$1"
+	svnHeadVer=`svn info -r 'HEAD' "$svnUrl" | grep "Last Changed Rev:" | cut -d ' ' -f 4`
+	if [ -n "$svnHeader" ]; then echo $svnHeadVer; return 0; fi
+	return 1
+}
+# ----------------------------
 # 获取版本号（暂时不可用）
 # softname --version
 # softname -v

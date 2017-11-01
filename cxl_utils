@@ -69,19 +69,37 @@ parse_to_json(){
 
 # ----------------------------
 # 获取配置文件参数值
+# 支持格式
+#	key=value
+#   kye = value
 # ----------------------------
 get_config_value(){
-	sed -n -r "/^[\s]?DB_HOST/p"  /usr/local/EmicallApp/config/boot.cfg | awk -F '=' '{print $2}'
-	awk -F "=>" '{if($1 ~ /session/){a=1;b=0};if(a==1){if($1 ~ /\]/){exit 99};if($1 ~ /prefix/){print $2;exit 0;}}}' /home/cxl/git-svn/spi/spi-php/application/config.php
-	awk -F '=>' '{if($0~/\047session\047/){find=1;fl=0;fr=0}if(find){if($0~/\[/){fl++;};if($0~/\]/){fr++;};if($1~/\047host\047/){print $2;exit 0;}if(fl==fr){exit 99}}}' ../application/config.php
+#	sed -n -r "/^[\s]?DB_HOST/p"  /usr/local/EmicallApp/config/boot.cfg | awk -F '=' '{print $2}'
+#	awk -F "=>" '{if($1 ~ /session/){a=1;b=0};if(a==1){if($1 ~ /\]/){exit 99};if($1 ~ /prefix/){print $2;exit 0;}}}' /home/cxl/git-svn/spi/spi-php/application/config.php
+#	awk -F '=>' '{if($0~/\047session\047/){find=1;fl=0;fr=0}if(find){if($0~/\[/){fl++;};if($0~/\]/){fr++;};if($1~/\047host\047/){print $2;exit 0;}if(fl==fr){exit 99}}}' ../application/config.php
+	if [ -z "$1" ]; then return 1; fi
+	if [ ! -f "$1" ]; then return 1; fi
+	if [ -z "$2" ]; then return 2; fi
+	local fn="$1"
+	local fKey="$2"
+	cat "$fn" | grep "$fKey\s*=" | cut -d "=" -f 2	
 }
 
 # ----------------------------
 # 设置配置文件参数值
+# 支持格式
+#	key=value
+#   key = value
 # ----------------------------
 set_config_value(){
-	
-	echo "set value"
+	if [ -z "$1" ]; then return 1; fi
+	if [ ! -f "$1" ]; then return 1; fi
+	if [ -z "$2" ]; then return 2; fi
+	local fn="$1"
+	local fKey="$2"
+	local fVal="$3"
+	if [ -z "$3" ]; then fVal=''; fi
+	sed -ri "s/($fKey\s*=).*/\1$fVal/" "$fn"
 }
 
 
